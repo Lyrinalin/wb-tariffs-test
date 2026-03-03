@@ -36,6 +36,29 @@ function loadGoogleAuth() {
     }
 }
 
+/**
+ * Форматирует дату в строку YYYY-MM-DD
+ * @param {any} dateVal
+ * @returns {string}
+ */
+function formatDate(dateVal) {
+    if (dateVal instanceof Date) {
+        return dateVal.toISOString().split('T')[0];
+    }
+    return String(dateVal).split('T')[0];
+}
+
+/**
+ * Безопасно возвращает значение для ячейки Google Sheets.
+ * Если null/undefined — вернёт прочерк "-".
+ * @param {any} val
+ * @returns {string|number}
+ */
+function cellValue(val) {
+    if (val === null || val === undefined) return '-';
+    return val;
+}
+
 const googleSheetsService = {
     /**
      * Получение списка активных Google-таблиц.
@@ -107,6 +130,10 @@ const googleSheetsService = {
 
     /**
      * Экспорт данных в конкретную Google-таблицу.
+     * 
+     * Стратегия: удаляем старый лист (если есть) и создаём новый.
+     * Это гарантирует, что никакие "Таблицы" (Tables), фильтры
+     * или форматирование не будут мешать записи данных.
      *
      * @param {JWT} auth
      * @param {string} sheetId
@@ -118,28 +145,15 @@ const googleSheetsService = {
         const doc = new GoogleSpreadsheet(sheetId, auth);
         await doc.loadInfo();
 
-        // Найти или создать лист
-        let sheet = doc.sheetsByTitle[sheetName];
-        if (!sheet) {
-            sheet = await doc.addSheet({
-                title: sheetName,
-                headerValues: [
-                    'Дата',
-                    'Склад',
-                    'Коэффициент',
-                    'Базовая доставка',
-                    'Доставка/литр',
-                    'Базовое хранение',
-                    'Хранение/литр',
-                ],
-            });
+        // ====== 1. Удалить старый лист, если он существует ======
+        const existingSheet = doc.sheetsByTitle[sheetName];
+        if (existingSheet) {
+            await existingSheet.delete();
+            logger.info(`Лист "${sheetName}" удалён для пересоздания`);
         }
 
-        // Очистить содержимое
-        await sheet.clear();
-
-        // Установить заголовки
-        await sheet.setHeaderRow([
+        // ====== 2. Создать новый чистый лист с заголовками ======
+        const headers = [
             'Дата',
             'Склад',
             'Коэффициент',
@@ -147,19 +161,25 @@ const googleSheetsService = {
             'Доставка/литр',
             'Базовое хранение',
             'Хранение/литр',
-        ]);
+        ];
 
-        // Подготовить строки (уже отсортированы по коэффициенту из repository)
+        const sheet = await doc.addSheet({
+            title: sheetName,
+            headerValues: headers,
+        });
+
+        // ====== 3. Подготовить строки ======
         const rows = tariffs.map((t) => ({
-            'Дата': t.date,
+            'Дата': formatDate(t.date),
             'Склад': t.warehouse_name,
-            'Коэффициент': t.box_delivery_and_storage_expr || '',
-            'Базовая доставка': t.box_delivery_base || '',
-            'Доставка/литр': t.box_delivery_liter || '',
-            'Базовое хранение': t.box_storage_base || '',
-            'Хранение/литр': t.box_storage_liter || '',
+            'Коэффициент': cellValue(t.box_delivery_and_storage_expr),
+            'Базовая доставка': cellValue(t.box_delivery_base),
+            'Доставка/литр': cellValue(t.box_delivery_liter),
+            'Базовое хранение': cellValue(t.box_storage_base),
+            'Хранение/литр': cellValue(t.box_storage_liter),
         }));
 
+        // ====== 4. Записать все строки одним вызовом ======
         await sheet.addRows(rows);
     },
 };

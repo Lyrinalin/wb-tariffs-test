@@ -37,11 +37,11 @@ const tariffRepository = {
         await db.raw(query, [
             data.date,
             data.warehouse_name,
-            data.box_delivery_and_storage_expr || null,
-            data.box_delivery_base || null,
-            data.box_delivery_liter || null,
-            data.box_storage_base || null,
-            data.box_storage_liter || null,
+            data.box_delivery_and_storage_expr !== undefined ? data.box_delivery_and_storage_expr : null,
+            data.box_delivery_base !== undefined ? data.box_delivery_base : null,
+            data.box_delivery_liter !== undefined ? data.box_delivery_liter : null,
+            data.box_storage_base !== undefined ? data.box_storage_base : null,
+            data.box_storage_liter !== undefined ? data.box_storage_liter : null,
         ]);
     },
 

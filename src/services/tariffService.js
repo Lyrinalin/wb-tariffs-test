@@ -40,7 +40,7 @@ const tariffService = {
             const records = warehouseList.map((wh) => ({
                 date: today,
                 warehouse_name: wh.warehouseName,
-                box_delivery_and_storage_expr: wh.boxDeliveryAndStorageExpr || null,
+                box_delivery_and_storage_expr: parseNumber(wh.boxDeliveryCoefExpr),
                 box_delivery_base: parseNumber(wh.boxDeliveryBase),
                 box_delivery_liter: parseNumber(wh.boxDeliveryLiter),
                 box_storage_base: parseNumber(wh.boxStorageBase),
